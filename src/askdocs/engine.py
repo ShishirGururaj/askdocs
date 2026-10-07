@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from askdocs.answer import NO_ANSWER, Answer, Answerer, ExtractiveAnswerer
 from askdocs.chunking import chunk_text
-from askdocs.embeddings import HashingEmbedder
+from askdocs.embeddings import HashingEmbedder, tokenize
 from askdocs.store import Hit, VectorStore
 
 SUPPORTED_SUFFIXES = {".md", ".txt", ".rst"}
@@ -18,11 +19,15 @@ class Engine:
         store: VectorStore | None = None,
         chunk_size: int = 120,
         overlap: int = 30,
+        answerer: Answerer | None = None,
+        min_score: float = 0.05,
     ) -> None:
         self.embedder = embedder or HashingEmbedder()
         self.store = store or VectorStore(dim=self.embedder.dim)
         self.chunk_size = chunk_size
         self.overlap = overlap
+        self.answerer = answerer or ExtractiveAnswerer()
+        self.min_score = min_score
 
     def ingest_text(self, source: str, text: str) -> int:
         """Chunk, embed and store ``text``. Returns the number of chunks added."""
@@ -30,6 +35,25 @@ class Engine:
         if not chunks:
             return 0
         return self.store.add(source, chunks, self.embedder.embed(chunks))
+    
+    def ask(self, question: str, k: int = 4) -> Answer:
+        """Retrieve the top-k chunks and answer from them.
+
+        Hits must clear ``min_score`` *and* share at least one term with the question.
+        The second check guards against hash collisions in the offline embedder, which
+        can otherwise give an unrelated chunk a respectable score.
+        """
+        q_terms = set(tokenize(question))
+        hits = [
+            h
+            for h in self.search(question, k)
+            if h.score >= self.min_score and q_terms & set(tokenize(h.record.text))
+        ]
+        if not hits:
+            return Answer(text=NO_ANSWER)
+        sources = list(dict.fromkeys(h.record.source for h in hits))
+        return Answer(text=self.answerer.answer(question, hits), sources=sources, hits=hits)
+
 
     def ingest_path(self, path: str | Path) -> tuple[int, int]:
         """Ingest a file or a directory tree. Returns ``(files, chunks)``."""

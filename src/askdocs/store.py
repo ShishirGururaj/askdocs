@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -54,3 +56,22 @@ class VectorStore:
         top = np.argpartition(-scores, k - 1)[:k]
         top = top[np.argsort(-scores[top])]
         return [Hit(self._records[i], float(scores[i])) for i in top]
+    
+        def save(self, directory: str | Path) -> None:
+        """Write ``vectors.npy`` and ``records.json`` into ``directory``."""
+        path = Path(directory)
+        path.mkdir(parents=True, exist_ok=True)
+        np.save(path / "vectors.npy", self._vectors)
+        payload = {"dim": self.dim, "records": [asdict(r) for r in self._records]}
+        (path / "records.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    @classmethod
+    def load(cls, directory: str | Path) -> VectorStore:
+        path = Path(directory)
+        payload = json.loads((path / "records.json").read_text(encoding="utf-8"))
+        store = cls(dim=payload["dim"])
+        store._vectors = np.load(path / "vectors.npy")
+        store._records = [Record(**r) for r in payload["records"]]
+        if len(store._records) != len(store._vectors):
+            raise ValueError("corrupt index: record and vector counts differ")
+        return store

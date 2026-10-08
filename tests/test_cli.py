@@ -23,3 +23,12 @@ def test_ask_without_index_fails_cleanly(tmp_path, capsys):
 
 def test_ingest_missing_path(tmp_path, capsys):
     assert main(["--index", str(tmp_path), "ingest", str(tmp_path / "missing")]) == 2
+
++def test_serve_starts_uvicorn(monkeypatch, tmp_path):
+    import uvicorn
+
+    calls = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, host, port: calls.update(host=host, port=port))
+    monkeypatch.setenv("ASKDOCS_INDEX", str(tmp_path / "idx"))
+    assert main(["serve", "--host", "0.0.0.0", "--port", "9000"]) == 0
+    assert calls == {"host": "0.0.0.0", "port": 9000}

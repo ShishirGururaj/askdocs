@@ -1,4 +1,4 @@
-"""Command-line interface: ``askdocs ingest|ask``."""
+"""Command-line interface: ``askdocs ingest|ask |serve``."""
 
 from __future__ import annotations
 
@@ -27,12 +27,23 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
     ask = sub.add_parser("ask", help="ask a question")
     ask.add_argument("question")
     ask.add_argument("-k", type=int, default=settings.top_k, help="chunks to retrieve")
+    serve = sub.add_parser("serve", help="run the HTTP API")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     settings = Settings.from_env()
     args = build_parser(settings).parse_args(argv)
+
+    if args.command == "serve":
+        import uvicorn
+
+        from askdocs.api import create_app_from_env
+
+        uvicorn.run(create_app_from_env(), host=args.host, port=args.port)
+        return 0
 
     if args.command == "ingest":
         path = Path(args.path)

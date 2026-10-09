@@ -9,6 +9,7 @@ from pathlib import Path
 from askdocs import __version__
 from askdocs.config import Settings
 from askdocs.engine import Engine
+from askdocs.llm import AnswerError, build_answerer
 
 
 def _load_or_new(index_dir: str) -> Engine:
@@ -60,7 +61,12 @@ def main(argv: list[str] | None = None) -> int:
         msg = f"error: no index at {args.index}; run `askdocs ingest <path>` first"
         print(msg, file=sys.stderr)
         return 2
-    result = Engine.load(args.index).ask(args.question, k=args.k)
+    try:    
+        engine = Engine.load(args.index, answerer=build_answerer(settings))
+        result = engine.ask(args.question, k=args.k)
+    except (AnswerError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     print(result.text)
     if result.sources:
         print("\nSources:")

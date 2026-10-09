@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from askdocs import __version__
 from askdocs.config import Settings
 from askdocs.engine import Engine
+from askdocs.llm import AnswerError, build_answerer
 
 
 class DocumentIn(BaseModel):
@@ -44,6 +46,10 @@ def create_app(engine: Engine | None = None, index_dir: str | None = None) -> Fa
     engine = engine or Engine()
     app = FastAPI(title="askdocs", version=__version__)
 
+    @app.exception_handler(AnswerError)
+    async def answer_error_handler(request: Request, exc: AnswerError) -> JSONResponse:
+        return JSONResponse(status_code=502, content={"detail": str(exc)})
+
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok", "version": __version__, "chunks": len(engine.store)}
@@ -74,5 +80,8 @@ def create_app_from_env() -> FastAPI:
     """App factory for uvicorn: loads an existing index from ``ASKDOCS_INDEX`` if present."""
     settings = Settings.from_env()
     exists = (Path(settings.index_dir) / "records.json").exists()
-    engine = Engine.load(settings.index_dir) if exists else Engine()
+    answerer = build_answerer(settings)
+    engine = (
+        Engine.load(settings.index_dir, answerer=answerer) if exists else Engine(answerer=answerer)
+    )
     return create_app(engine, index_dir=settings.index_dir)

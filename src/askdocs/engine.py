@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from askdocs.answer import NO_ANSWER, Answer, Answerer, ExtractiveAnswerer
@@ -10,7 +11,12 @@ from askdocs.embeddings import HashingEmbedder, tokenize
 from askdocs.store import Hit, VectorStore
 
 SUPPORTED_SUFFIXES = {".md", ".txt", ".rst"}
+_HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.MULTILINE)
 
+
+def _normalize(text: str) -> str:
+    """Turn markdown headings into their own sentences so they don't fuse with the next line."""
+    return _HEADING.sub(r"\1.", text)
 
 class Engine:
     def __init__(
@@ -31,7 +37,7 @@ class Engine:
 
     def ingest_text(self, source: str, text: str) -> int:
         """Chunk, embed and store ``text``. Returns the number of chunks added."""
-        chunks = chunk_text(text, self.chunk_size, self.overlap)
+        chunks = chunk_text(_normalize(text), self.chunk_size, self.overlap)
         if not chunks:
             return 0
         return self.store.add(source, chunks, self.embedder.embed(chunks))

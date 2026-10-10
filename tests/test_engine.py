@@ -39,3 +39,9 @@ def test_save_and_load(tmp_path):
     loaded = Engine.load(tmp_path)
     q = "rolling deployments replicas"
     assert loaded.search(q, 1)[0].record.id == engine.search(q, 1)[0].record.id
+
+
+def test_markdown_headings_become_their_own_sentences():
+    engine = Engine()
+    engine.ingest_text("a.md", "# Title here\nBody text follows.")
+    assert engine.store.records[0].text == "Title here. Body text follows."

@@ -34,15 +34,20 @@ class ExtractiveAnswerer:
 
     def answer(self, question: str, hits: list[Hit]) -> str:
         q_tokens = set(tokenize(question))
-        scored: list[tuple[float, int, str]] = []
+        scored: list[tuple[int, float, int, str]] = []
         order = 0
         for hit in hits:
             for sentence in _SENTENCE_SPLIT.split(hit.record.text):
                 overlap = len(q_tokens & set(tokenize(sentence)))
                 if overlap:
-                    scored.append((overlap + hit.score, order, sentence.strip()))
+                    scored.append((overlap, overlap + hit.score, order, sentence.strip()))
                 order += 1
         if not scored:
             return NO_ANSWER
         best = sorted(scored, key=lambda s: -s[0])[: self.max_sentences]
         return " ".join(s for _, _, s in sorted(best, key=lambda s: s[1]))
+        # Drop sentences that match far fewer question terms than the best one.
+        top_overlap = max(s[0] for s in scored)
+        strong = [s for s in scored if s[0] > top_overlap / 2]
+        best = sorted(strong, key=lambda s: -s[1])[: self.max_sentences]
+        return " ".join(s[3] for s in sorted(best, key=lambda s: s[2]))

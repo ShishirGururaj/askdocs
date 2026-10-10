@@ -1,0 +1,8 @@
+[
+  {"question": "How long do access tokens last?", "expected_source": "security.md"},
+  {"question": "How often are dependencies scanned for vulnerabilities?", "expected_source": "security.md"},
+  {"question": "How many replicas do we run in production?", "expected_source": "deploying.md"},
+  {"question": "How do rolling deployments work?", "expected_source": "deploying.md"},
+  {"question": "Who needs to approve a pull request?", "expected_source": "onboarding.md"},
+  {"question": "What happens during the first week for new engineers?", "expected_source": "onboarding.md"}
+]

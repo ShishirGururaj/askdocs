@@ -1,4 +1,4 @@
-"""Command-line interface: ``askdocs ingest|ask |serve``."""
+"""Command-line interface: ``askdocs ingest|ask|eval|serve``."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pathlib import Path
 from askdocs import __version__
 from askdocs.config import Settings
 from askdocs.engine import Engine
+from askdocs.evaluation import evaluate, load_cases
 from askdocs.llm import AnswerError, build_answerer
 
 
@@ -28,6 +29,9 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
     ask = sub.add_parser("ask", help="ask a question")
     ask.add_argument("question")
     ask.add_argument("-k", type=int, default=settings.top_k, help="chunks to retrieve")
+    ev = sub.add_parser("eval", help="measure retrieval quality on a golden question set")
+    ev.add_argument("cases", help="JSON file: [{question, expected_source}, ...]")
+    ev.add_argument("-k", type=int, default=3)
     serve = sub.add_parser("serve", help="run the HTTP API")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
@@ -37,6 +41,18 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     settings = Settings.from_env()
     args = build_parser(settings).parse_args(argv)
+
+    if args.command == "eval":
+        if not (Path(args.index) / "records.json").exists():
+            print(f"error: no index at {args.index}", file=sys.stderr)
+            return 2
+        report = evaluate(Engine.load(args.index), load_cases(args.cases), k=args.k)
+        print(f"questions: {report.total}")
+        print(f"hit@{args.k}:    {report.hit_at_k:.2f}")
+        print(f"MRR:      {report.mrr:.2f}")
+        for question in report.misses:
+            print(f"  miss: {question}")
+        return 0 if not report.misses else 1
 
     if args.command == "serve":
         import uvicorn

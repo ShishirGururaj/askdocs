@@ -6,7 +6,6 @@
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
  
--> Work in progress. See the commit history for the build-up, one step at a time.
 A small, readable **RAG (retrieval-augmented generation) service** in Python. Point it at a folder
 of docs, then ask questions over a CLI or an HTTP API and get answers with sources.
 
@@ -38,11 +37,15 @@ askdocs ask "How long do access tokens last?"
 ```
 
 ```
-Dependencies are scanned weekly ... access tokens expire after one hour.
+All services require authentication, and access tokens expire after one hour.
 
 Sources:
   - examples/docs/security.md
+  - examples/docs/onboarding.md
 ```
+
+`Sources` lists every chunk retrieved as context (highest-ranked first), not only the ones quoted
+in the answer, so you can see what the answer was grounded in.
 
 ## HTTP API
 
